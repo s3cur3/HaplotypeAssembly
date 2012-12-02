@@ -1,43 +1,47 @@
 
-def overlap( string1, string2 ):
+def overlap( s1, s2 ):
     '''
     Calculates the overlap between 2 strings. The overlap between strings 1 and 2
     is the length of the longest prefix of string 2 that matches a suffix of
     string 1.
 
+    E.g., overlap( ABCDEFG, EFGHIJK ) = 3
+
     Thus, *you* are responsible for deciding whether overlap(s1,s2) is greater
     than overlap(s2,s1). Furthermore, you are responsible for handling any
     reverse-complimentarity issues.
     '''
-    maxAllowedErrors = (max(len(string1), len(string2)) * 0.1)
+    maxAllowedErrors = (max(len(s2), len(s1)) * 0.05)
 
     maxSoFar = 0
     errorsSoFar = 0
-    posInS1 = 0
-    maxAtThisSize = 0
-    for posInS2 in range(len(string2)-1, 0, -1):
+    s2pos = 0
+    alignmentStart = 0
+    for s1pos in range(len(s1)-1, 0, -1):
         maxAtThisSize = 0
-        if posInS1 > len(string1) or posInS2 < 0:
+        potentialAlignmentStart = s1pos
+        if s1pos < 0: # no suffix of S1 can begin left of its first character
             break
-        for i in range(0, posInS1 + 1):
-            if i >= len(string1):
+        for i in range(0, s2pos + 1):
+            if i >= len(s2): # if s2 matches completely with an internal section of s1
                 break
 
             #print(string1," compared to ", string2)
             #print( "i is", i, " and posInS2+i is", posInS2+i)
-            if string1[i] == string2[posInS2 + i]:
+            if s2[i] == s1[s1pos + i]:
                 maxAtThisSize += 1
             else:
                 errorsSoFar += 1
                 if errorsSoFar >= maxAllowedErrors:
                     break
 
-        posInS1 += 1
+        s2pos += 1
         if(maxAtThisSize > maxSoFar):
             maxSoFar = maxAtThisSize
+            alignmentStart = potentialAlignmentStart
 
     #print("Found max overlap of", string1, "and", string2, "to be", maxSoFar)
-    return maxSoFar
+    return int(maxSoFar), alignmentStart
 
 
 def getReverseCompliment(string):
@@ -106,7 +110,7 @@ def main():
     # Comparing all fragments to one another
     for i in range(len(fragments)-1):
         for j in range(len(fragments)-1):
-            overlapMatrix[i][j] = overlap(fragments[i],fragments[j])
+            overlapMatrix[i][j], theOffset = overlap(fragments[i],fragments[j])
 
     revCompMatrix = [ [0] * numSeqs for i in range(numSeqs) ]
 
@@ -115,11 +119,12 @@ def main():
     for i in range(len(fragments)-1):
         revCompOfI = getReverseCompliment(fragments[i])
         for j in range(len(fragments)-1):
-            revCompMatrix[i][j] = overlap(revCompOfI,fragments[j])
+            revCompMatrix[i][j], theOffset = overlap(revCompOfI,fragments[j])
 
 
     alignments = []
     currentRow = 0
+    normalFragments = [] # *not* reverse-complimentary fragments!
     while len(alignments) < len(fragments):
         for row in overlapMatrix:
             row[currentRow] = -1
@@ -129,8 +134,9 @@ def main():
         currentRowMax = max(overlapMatrix[currentRow])
         currentRowMaxIfRevComp = max(revCompMatrix[currentRow])
         nextRow = overlapMatrix[currentRow].index(currentRowMax)
+        nextRowIfRevComp = revCompMatrix[currentRow].index(currentRowMaxIfRevComp)
 
-        if currentRowMaxIfRevComp > currentRowMax:
+        if currentRowMaxIfRevComp > currentRowMax and currentRow not in normalFragments:
             # If this fragment should be treated as a reverse complement of
             # another, we ignore it (since we have 5x coverage anyway when going
             # the "right" way)
@@ -138,21 +144,37 @@ def main():
             # Since "nextRow" is better treated as a rev comp, eliminate it from
             # future consideration and continue on -- next time we'll find the "real"
             # best match for currentRow
-            for row in overlapMatrix:
-                row[nextRow] = -1
-            for row in revCompMatrix:
-                row[nextRow] = -1
+            normalFragments.append( nextRowIfRevComp )
             continue
 
 
         alignments.append([currentRow,nextRow])
         currentRow = nextRow
 
+    offset = 0
+    for pair in alignments:
+        if pair[0] == pair[1] == 0:
+            break
+        print( (" "*offset), fragments[pair[0]], sep="" )
+        theOverlap, addToOffset = overlap(fragments[pair[0]], fragments[pair[1]])
+        #print("Overlap between",fragments[pair[0]], "and", fragments[pair[1]], " was", theOverlap)
+        offset += addToOffset
+
+    offset = 0
+    csvFile = open("alignments.csv", "w")
+    for pair in alignments:
+        if pair[0] == pair[1] == 0:
+            break
+        csvFile.write( (" ,"*offset) )
+        for letter in fragments[pair[0]]:
+            csvFile.write( letter + "," )
+        csvFile.write("\n")
+        theOverlap, addToOffset = overlap(fragments[pair[0]], fragments[pair[1]])
+        #print("Overlap between",fragments[pair[0]], "and", fragments[pair[1]], " was", theOverlap)
+        offset += addToOffset
 
 
-    print(alignments)
-
-    for alignment in alignments:
-        print(fragments[alignment[0]] )
+    #for alignment in alignments:
+    #    print(fragments[alignment[0]] )
 
 main()
