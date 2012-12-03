@@ -130,24 +130,27 @@ def main_run(distancesFileName, fragmentFileName, crossover_rate=1.0, mutation_r
 
     ga.evolve(freq_stats=100)
     best = ga.bestIndividual()
-    print best.getInternalList()
 
-    # Write the best sequence out to a file
-    bestFile = open("alignmentOrder.txt", "w")
-    for num in best.getInternalList():
-        bestFile.write(str(num))
-        bestFile.write(" ")
-
-    return eval_func(best)
+    return eval_func(best), best.getInternalList()
 
 if __name__ == "__main__":
-    for i in range(1):
+    bestScore = -1
+    bestSequence = []
+    for i in range(30):
         crossover_rate = float(random.randrange(20, 100, 5))/100
         mutation_rate = float(random.randrange(0, 15, 1))/100
         population_size = random.randrange(10, 150, 10)
-        population_size = 50
-        value = main_run("overlap.txt", "fragments.txt", crossover_rate, mutation_rate, population_size)
+        score, sequence = main_run("overlap.txt", "fragments.txt", crossover_rate, mutation_rate, population_size)
 
-        f = open('genetic_coords2_output.txt', 'a')
-        f.write(str(crossover_rate) + "," + str(mutation_rate) + "," + str(population_size) + "," + str(value) + "\n")
-        f.close()
+        if score > bestScore:
+            bestScore = score
+            bestSequence = sequence
+
+    print "Best score: ", bestScore
+    print "Sequence: ", bestSequence
+
+    # Write the best sequence out to a file
+    bestFile = open("alignmentOrder.txt", "w")
+    for num in bestSequence:
+        bestFile.write(str(num))
+        bestFile.write(" ")
