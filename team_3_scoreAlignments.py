@@ -1,3 +1,12 @@
+'''
+A program to find the best overlap between all sequence fragments and write them
+to disk.
+
+Tyler Young and Bob Barnhart
+Written for Python 3
+'''
+
+
 # If a fragment in our file is less than or equal to MIN_LENGTH, we ignore it
 # entirely (with 5x coverage, it may wind up being a red herring)
 MIN_LENGTH = 3
@@ -100,26 +109,9 @@ def getDuplicateMatrix( matrixToCopy ):
         m.append( list(row) )
     return m
 
-def printFragments( listOfFragments, alignmentList ):
-    offset = 0
-    for pair in alignmentList:
-        if pair[0] == pair[1] == 0:
-            break
-        print( (" "*offset), listOfFragments[pair[0]], sep="" )
-        theOverlap, addToOffset = overlap(listOfFragments[pair[0]], listOfFragments[pair[1]])
-        #print("Overlap between",fragments[pair[0]], "and", fragments[pair[1]], " was", theOverlap)
-        offset += addToOffset
 
 def main():
-    f = open('fragments.txt', 'rU')
-    workingFragmentList = []
-    # Read in each line in the file
-    for line in f:
-        # Only get the sequences, not fragment # or newline char
-        if(line[0] != '>' and line != '\n'):
-            workingFragmentList.append(line.rstrip())
-
-    workingFragmentList = getFragments('fragments.txt')
+    workingFragmentList = getFragments('fragments.fasta')
     fragments = list(workingFragmentList)
 
     numSeqs = len(workingFragmentList)
@@ -130,6 +122,22 @@ def main():
     for i in range(len(workingFragmentList)-1):
         for j in range(len(workingFragmentList)-1):
             overlapMatrix[i][j], theOffset = overlap(workingFragmentList[i],workingFragmentList[j])
+
+    # Write the matrix to disk
+    overlapFile = open("overlap.txt", "w")
+    for row in overlapMatrix:
+        for col in row:
+            overlapFile.write(str(col))
+            overlapFile.write(" ")
+        overlapFile.write("\n")
+
+    # Write the fragment file to disk
+    fragmentFile = open("fragments.txt", "w")
+    for f in fragments:
+        fragmentFile.write(f)
+        fragmentFile.write("\n")
+
+
 
     revCompMatrix = [ [0] * numSeqs for i in range(numSeqs) ]
 
@@ -189,29 +197,7 @@ def main():
             currentFragment = nextFragment
             prevOverlapMatrix = getDuplicateMatrix(overlapMatrix)
 
-    # Print the alignments normally
-    printFragments( fragments, alignments )
+    print("Wrote the output file. Now run the team_3_tsp.py program in python2.")
 
-    # Write the alignments to a CSV file
-    offset = 0
-    csvFile = open("alignments.csv", "w")
-    for pair in alignments:
-        if pair[0] == pair[1] == 0:
-            break
-        csvFile.write( (" ,"*offset) )
-        for letter in fragments[pair[0]]:
-            csvFile.write( letter + "," )
-        csvFile.write("\n")
-        theOverlap, addToOffset = overlap(fragments[pair[0]], fragments[pair[1]])
-        #print("Overlap between",fragments[pair[0]], "and", fragments[pair[1]], " was", theOverlap)
-        offset += addToOffset
-
-    # Count the bast pairs:
-    count = 0
-    for fragment in fragments:
-        count += len(fragment)
-    print("\n\nNumber of base pairs is",count)
-    print("Expected length of the final sequence is",count,"/ (4*5) = ",count/(4*5))
-    print("Actual length of the sequence is a bit more than",offset)
-
-main()
+if __name__ == "__main__":
+    main()
