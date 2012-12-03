@@ -1,3 +1,7 @@
+# If a fragment in our file is less than or equal to MIN_LENGTH, we ignore it
+# entirely (with 5x coverage, it may wind up being a red herring)
+MIN_LENGTH = 3
+
 
 def overlap( s1, s2 ):
     '''
@@ -81,7 +85,7 @@ def getFragments(file):
         # if it's a header line, finish the previous sequence
         # and start a new one
         if line[0] == '>':
-            if sequence != "":
+            if sequence != "" and len(sequence) > MIN_LENGTH:
                 resultList.append(sequence)
             sequence = ''
 
@@ -90,76 +94,105 @@ def getFragments(file):
             sequence += line
     return resultList
 
+def getDuplicateMatrix( matrixToCopy ):
+    m = []
+    for row in matrixToCopy:
+        m.append( list(row) )
+    return m
 
+def printFragments( listOfFragments, alignmentList ):
+    offset = 0
+    for pair in alignmentList:
+        if pair[0] == pair[1] == 0:
+            break
+        print( (" "*offset), listOfFragments[pair[0]], sep="" )
+        theOverlap, addToOffset = overlap(listOfFragments[pair[0]], listOfFragments[pair[1]])
+        #print("Overlap between",fragments[pair[0]], "and", fragments[pair[1]], " was", theOverlap)
+        offset += addToOffset
 
 def main():
     f = open('fragments.txt', 'rU')
-    fragments = []
+    workingFragmentList = []
     # Read in each line in the file
     for line in f:
         # Only get the sequences, not fragment # or newline char
         if(line[0] != '>' and line != '\n'):
-            fragments.append(line.rstrip())
+            workingFragmentList.append(line.rstrip())
 
-    fragments = getFragments('fragments.txt')
+    workingFragmentList = getFragments('fragments.txt')
+    fragments = list(workingFragmentList)
 
-    numSeqs = len(fragments)
+    numSeqs = len(workingFragmentList)
     overlapMatrix = [ [0] * numSeqs for i in range(numSeqs) ]
 
     # Creating a matrix of the overlap distances
     # Comparing all fragments to one another
-    for i in range(len(fragments)-1):
-        for j in range(len(fragments)-1):
-            overlapMatrix[i][j], theOffset = overlap(fragments[i],fragments[j])
+    for i in range(len(workingFragmentList)-1):
+        for j in range(len(workingFragmentList)-1):
+            overlapMatrix[i][j], theOffset = overlap(workingFragmentList[i],workingFragmentList[j])
 
     revCompMatrix = [ [0] * numSeqs for i in range(numSeqs) ]
 
     # Creating a matrix of the overlap distances
     # Comparing all fragments to one another
-    for i in range(len(fragments)-1):
-        revCompOfI = getReverseCompliment(fragments[i])
-        for j in range(len(fragments)-1):
-            revCompMatrix[i][j], theOffset = overlap(revCompOfI,fragments[j])
+    for i in range(len(workingFragmentList)-1):
+        revCompOfI = getReverseCompliment(workingFragmentList[i])
+        for j in range(len(workingFragmentList)-1):
+            revCompMatrix[i][j], theOffset = overlap(revCompOfI,workingFragmentList[j])
 
 
     alignments = []
-    currentRow = 0
-    normalFragments = [] # *not* reverse-complimentary fragments!
-    while len(alignments) < len(fragments):
+    currentFragment = 0
+    senseFragments = [] # *not* reverse-complimentary fragments!
+    antisenseFragments = [] # reverse-complimentary fragments
+    prevOverlapMatrix = getDuplicateMatrix(overlapMatrix)
+    while len(alignments) < len(workingFragmentList):
         for row in overlapMatrix:
-            row[currentRow] = -1
+            row[currentFragment] = -1
         for row in revCompMatrix:
-            row[currentRow] = -1
+            row[currentFragment] = -1
 
-        currentRowMax = max(overlapMatrix[currentRow])
-        currentRowMaxIfRevComp = max(revCompMatrix[currentRow])
-        nextRow = overlapMatrix[currentRow].index(currentRowMax)
-        nextRowIfRevComp = revCompMatrix[currentRow].index(currentRowMaxIfRevComp)
+        currentFragmentOverlap = max(overlapMatrix[currentFragment])
+        revCompOverlap = max(revCompMatrix[currentFragment])
+        nextFragment = overlapMatrix[currentFragment].index(currentFragmentOverlap)
+        nextFragmentIfRevComp = revCompMatrix[currentFragment].index(revCompOverlap)
 
-        if currentRowMaxIfRevComp > currentRowMax and currentRow not in normalFragments:
+        if revCompOverlap > currentFragmentOverlap \
+                and currentFragment not in senseFragments\
+                and currentFragment != 0:
             # If this fragment should be treated as a reverse complement of
             # another, we ignore it (since we have 5x coverage anyway when going
             # the "right" way)
 
-            # Since "nextRow" is better treated as a rev comp, eliminate it from
-            # future consideration and continue on -- next time we'll find the "real"
-            # best match for currentRow
-            normalFragments.append( nextRowIfRevComp )
-            continue
+            # Since the current fragment is better treated as a rev comp, eliminate
+            # it from future consideration and continue on -- next time we'll find
+            # the "real" best match for currentRow
 
+            # Force the sense version of the current fragment to go in the "sense"
+            # direction
+            senseFragments.append( nextFragmentIfRevComp )
 
-        alignments.append([currentRow,nextRow])
-        currentRow = nextRow
+            # For posterity, remember that we forced this to be an antisense fragment
+            antisenseFragments.append(currentFragment)
+            # Delete the current fragment from the list of fragments (due to the
+            # loop's exit condition
+            workingFragmentList.remove(fragments[currentFragment])
 
-    offset = 0
-    for pair in alignments:
-        if pair[0] == pair[1] == 0:
-            break
-        print( (" "*offset), fragments[pair[0]], sep="" )
-        theOverlap, addToOffset = overlap(fragments[pair[0]], fragments[pair[1]])
-        #print("Overlap between",fragments[pair[0]], "and", fragments[pair[1]], " was", theOverlap)
-        offset += addToOffset
+            # Undo matching the previous strand with this one
+            prevMatch = alignments.pop()
+            currentFragment = prevMatch[0] # reset current fragment
 
+            # The overlap matrix after undoing the previous alignment
+            #overlapMatrix = prevOverlapMatrix # reset the overlap matrix
+        else:
+            alignments.append([currentFragment,nextFragment])
+            currentFragment = nextFragment
+            prevOverlapMatrix = getDuplicateMatrix(overlapMatrix)
+
+    # Print the alignments normally
+    printFragments( fragments, alignments )
+
+    # Write the alignments to a CSV file
     offset = 0
     csvFile = open("alignments.csv", "w")
     for pair in alignments:
@@ -173,8 +206,12 @@ def main():
         #print("Overlap between",fragments[pair[0]], "and", fragments[pair[1]], " was", theOverlap)
         offset += addToOffset
 
-
-    #for alignment in alignments:
-    #    print(fragments[alignment[0]] )
+    # Count the bast pairs:
+    count = 0
+    for fragment in fragments:
+        count += len(fragment)
+    print("\n\nNumber of base pairs is",count)
+    print("Expected length of the final sequence is",count,"/ (4*5) = ",count/(4*5))
+    print("Actual length of the sequence is a bit more than",offset)
 
 main()
