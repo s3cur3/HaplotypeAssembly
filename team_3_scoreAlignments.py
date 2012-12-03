@@ -139,6 +139,13 @@ def main():
 
 
 
+    ##### NOTE: All code that follows is a remnant of when we were trying to #####
+    ##### solve TSP by hand. Its output should be ignored, but I've left the #####
+    ##### code for the sake of posterity (i.e., when we need to do similar   #####
+    ##### things in the future.                                              #####
+    print("Ignore the following output and run team_3_tsp.py.")
+
+
     revCompMatrix = [ [0] * numSeqs for i in range(numSeqs) ]
 
     # Creating a matrix of the overlap distances
