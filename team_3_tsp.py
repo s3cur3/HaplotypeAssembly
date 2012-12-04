@@ -32,7 +32,7 @@ from pyevolve import Initializators
 from pyevolve import DBAdapters
 from pyevolve import Crossovers
 from pyevolve import Consts
-import sys, random
+import datetime, random
 from math import sqrt
 
 PIL_SUPPORT = False
@@ -136,6 +136,9 @@ def main_run(distancesFileName, fragmentFileName, crossover_rate=1.0, mutation_r
 if __name__ == "__main__":
     bestScore = -1
     bestSequence = []
+
+    # Repeat many times so that we vary the parameters of the model (results in much
+    # better... results.)
     for i in range(30):
         crossover_rate = float(random.randrange(20, 100, 5))/100
         mutation_rate = float(random.randrange(0, 15, 1))/100
@@ -151,6 +154,12 @@ if __name__ == "__main__":
 
     # Write the best sequence out to a file
     bestFile = open("alignmentOrder.txt", "w")
+    for num in bestSequence:
+        bestFile.write(str(num))
+        bestFile.write(" ")
+
+    # Write a second file in case we're running multiple tests at once
+    bestFile = open("alignmentOrderWith" + str(len(bestSequence))  + "SequencesEndingAt" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ".txt", "w")
     for num in bestSequence:
         bestFile.write(str(num))
         bestFile.write(" ")

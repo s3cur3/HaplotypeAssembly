@@ -110,18 +110,56 @@ def getDuplicateMatrix( matrixToCopy ):
     return m
 
 
-def main():
-    workingFragmentList = getFragments('fragments.fasta')
-    fragments = list(workingFragmentList)
-
-    numSeqs = len(workingFragmentList)
+def getOverlapMatrix(fragments):
+    numSeqs = len(fragments)
     overlapMatrix = [ [0] * numSeqs for i in range(numSeqs) ]
 
     # Creating a matrix of the overlap distances
     # Comparing all fragments to one another
-    for i in range(len(workingFragmentList)-1):
-        for j in range(len(workingFragmentList)-1):
-            overlapMatrix[i][j], theOffset = overlap(workingFragmentList[i],workingFragmentList[j])
+    for i in range(numSeqs-1):
+        for j in range(numSeqs-1):
+            overlapMatrix[i][j], theOffset = overlap(fragments[i],fragments[j])
+
+    return overlapMatrix
+
+def getRevCompMatrix(fragments):
+    numSeqs = len(fragments)
+    revCompMatrix = [ [0] * numSeqs for i in range(numSeqs) ]
+
+    # Create a matrix of the overlap distances if each fragment, in turn,
+    # is treated as part of the anti-sense strand
+    for i in range(len(fragments)-1):
+        revCompOfI = getReverseCompliment(fragments[i])
+        for j in range(len(fragments)-1):
+            revCompMatrix[i][j], theOffset = overlap(revCompOfI,fragments[j])
+
+    return revCompMatrix
+
+
+def main():
+    workingFragmentList = getFragments('fragments.fasta')
+    fragments = list(workingFragmentList)
+
+    #### TODO: Should we iterate this a few times? ####
+    #### Begin possible for loop ####
+
+    overlapMatrix = getOverlapMatrix( workingFragmentList )
+    revCompMatrix = getRevCompMatrix( workingFragmentList )
+
+    # Remove from the list of fragments any fragment which aligns better as part
+    # of the anti-sense strand
+    for i in range(len(fragments)):
+        if max(overlapMatrix[i]) > max(revCompMatrix[i]):
+            workingFragmentList.remove(fragments[i])
+
+    # "Delete" our knowledge of any fragments which we've decided to treat as part
+    # of the antisense strand
+    fragments = list(workingFragmentList)
+
+    #### End possible for loop ####
+
+    # Using that new, trimmed-down list of fragments, recreate the overlap matrix
+    overlapMatrix = getOverlapMatrix( fragments )
 
     # Write the matrix to disk
     overlapFile = open("overlap.txt", "w")
@@ -138,22 +176,11 @@ def main():
         fragmentFile.write("\n")
 
 
-
     ##### NOTE: All code that follows is a remnant of when we were trying to #####
     ##### solve TSP by hand. Its output should be ignored, but I've left the #####
     ##### code for the sake of posterity (i.e., when we need to do similar   #####
     ##### things in the future.                                              #####
     print("Ignore the following output and run team_3_tsp.py.")
-
-
-    revCompMatrix = [ [0] * numSeqs for i in range(numSeqs) ]
-
-    # Creating a matrix of the overlap distances
-    # Comparing all fragments to one another
-    for i in range(len(workingFragmentList)-1):
-        revCompOfI = getReverseCompliment(workingFragmentList[i])
-        for j in range(len(workingFragmentList)-1):
-            revCompMatrix[i][j], theOffset = overlap(revCompOfI,workingFragmentList[j])
 
 
     alignments = []
