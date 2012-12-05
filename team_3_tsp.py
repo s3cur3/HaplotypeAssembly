@@ -84,10 +84,6 @@ def getAlignmentScore(matrix, tour):
             offset += addToOffset
             memo[pair] = addToOffset
 
-    #print("Length to add to offset: ", len(fragments[ tour[-1] ]))
-    #print("Fragment that comes from: ", (fragments[ tour[-1] ]) )
-    #print("(That's at position ", tour[-1],"in the list of fragments)")
-
     # Return the length of the overall alignment
     # Offset tells us where the last thing lines up against the whole sequence
     # The full length of the aligned fragments is the offset plus the length of
@@ -131,9 +127,6 @@ def main_run(distancesFileName, fragmentFileName, crossover_rate=1.0, mutation_r
     filehandle = open(distancesFileName, "r")
     coords = read_coords(filehandle)
     cm = coords
-
-    #for row in cm:
-    #    print row
 
     # set the alleles to the cities numbers
     setOfAlleles = GAllele.GAlleles(homogeneous=True)
@@ -195,7 +188,7 @@ if __name__ == "__main__":
 
     # Repeat many times so that we vary the parameters of the model (results in much
     # better... results.)
-    for i in range(35):
+    for i in range(1):
         crossover_rate = float(random.randrange(20, 100, 5))/100
         mutation_rate = float(random.randrange(0, 15, 1))/100
         population_size = random.randrange(10, 150, 10)

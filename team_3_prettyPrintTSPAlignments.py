@@ -44,7 +44,7 @@ def printAlignments( listOfFragments, alignmentList ):
 
 def writeAlignmentCSV( fileToWriteTo, fragments, alignments ):
     offset = 0
-    csvFile = open("alignments.csv", "w")
+    csvFile = open(fileToWriteTo, "w")
     for pair in alignments:
         if pair[0] == pair[1] == 0:
             break

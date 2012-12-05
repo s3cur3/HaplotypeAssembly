@@ -9,8 +9,13 @@ Written for Python 3
 
 # If a fragment in our file is less than or equal to MIN_LENGTH, we ignore it
 # entirely (with 5x coverage, it may wind up being a red herring)
-MIN_LENGTH = 5
+MIN_LENGTH = 3
 
+# If there are greater than this percentage of errors among the "matched" base pairs,
+# we reject this as a possible alignment
+ALLOWED_ERROR_RATE = 0.3
+
+import math
 
 def overlap( s1, s2 ):
     '''
@@ -24,12 +29,11 @@ def overlap( s1, s2 ):
     than overlap(s2,s1). Furthermore, you are responsible for handling any
     reverse-complimentarity issues.
     '''
-    maxAllowedErrors = (min(len(s2), len(s1)) * 0.2) # 10% of the shortest seq.
 
     maxSoFar = 0
     s2pos = 0
     alignmentStart = len(s1)
-    for s1pos in range(len(s1)-1, 0, -1):
+    for s1pos in range(len(s1)-1, -1, -1):
         errorsSoFar = 0
 
         maxAtThisSize = 0
@@ -37,22 +41,23 @@ def overlap( s1, s2 ):
         if s1pos < 0: # no suffix of S1 can begin left of its first character
             break
         for i in range(0, s2pos + 1):
+            allowedErrorsHere = math.ceil( (i+1)*ALLOWED_ERROR_RATE )
+
             if i >= len(s2): # if s2 matches completely with an internal section of s1
                 break
 
-            #print(string1," compared to ", string2)
-            #print( "i is", i, " and posInS2+i is", posInS2+i)
             if s2[i] == s1[s1pos + i]:
                 maxAtThisSize += 1
             else:
                 errorsSoFar += 1
+                maxAtThisSize += 1
                 #print("Found an error! This is number ", errorsSoFar, "for this alignment, of a maximum of ", maxAllowedErrors)
-                if errorsSoFar >= maxAllowedErrors:
+                if errorsSoFar >= allowedErrorsHere:
                     # Stop considering this as a possible alignment
                     break
 
         s2pos += 1
-        if(maxAtThisSize > maxSoFar) and (errorsSoFar < maxAllowedErrors):
+        if(maxAtThisSize > maxSoFar) and (errorsSoFar < allowedErrorsHere):
             maxSoFar = maxAtThisSize
             alignmentStart = potentialAlignmentStart
 
@@ -74,8 +79,11 @@ def getReverseCompliment(string):
             revComp.append('A')
         elif letter == 'C':
             revComp.append('G')
-        else:
+        elif letter == 'G':
             revComp.append('C')
+        else:
+            print("ERROR! Non-DNA letter",letter,"found in your FASTA data.")
+            exit()
     revComp.reverse()
     return revComp
 
@@ -104,6 +112,10 @@ def getFragments(file):
         # if we're here, we must be in letters of the sequence
         else:
             sequence += line
+
+    # Add the final sequence to the list (whatever's remaining)
+    if sequence != '':
+        resultList.append(sequence)
     return resultList
 
 def getDuplicateMatrix( matrixToCopy ):
@@ -119,8 +131,8 @@ def getOverlapMatrix(fragments):
 
     # Creating a matrix of the overlap distances
     # Comparing all fragments to one another
-    for i in range(numSeqs-1):
-        for j in range(numSeqs-1):
+    for i in range(numSeqs):
+        for j in range(numSeqs):
             overlapMatrix[i][j], theOffset = overlap(fragments[i],fragments[j])
 
     return overlapMatrix
@@ -131,29 +143,56 @@ def getRevCompMatrix(fragments):
 
     # Create a matrix of the overlap distances if each fragment, in turn,
     # is treated as part of the anti-sense strand
-    for i in range(len(fragments)-1):
+    for i in range(len(fragments)):
         revCompOfI = getReverseCompliment(fragments[i])
-        for j in range(len(fragments)-1):
+        for j in range(len(fragments)):
             revCompMatrix[i][j], theOffset = overlap(revCompOfI,fragments[j])
 
     return revCompMatrix
 
+def negateMainDiagonal(squareMatrix):
+    for i in range(len(squareMatrix)):
+        squareMatrix[i][i] = -squareMatrix[i][i]
+    return squareMatrix
 
 def main():
     workingFragmentList = getFragments('fragments.fasta')
+    fragments = list(workingFragmentList)
+
+    # If any fragment is wholly contained in another, we can forget about it.
+#    for i in range(len(fragments)):
+#        for j in range(len(fragments)):
+#            if fragments[i] in fragments[j] and i != j:
+#                workingFragmentList.remove(fragments[i])
+#                break
+
+    print("Removed",len(fragments)-len(workingFragmentList),
+          "fragments, as they are pieces of other, longer fragments.")
     fragments = list(workingFragmentList)
 
     #### TODO: Should we actually be iterating this a few times? ####
     # Iterate to make sure we remove anything that aligns better on the antisense
     # strand than the sense strand
     for iteration in range(5):
-        overlapMatrix = getOverlapMatrix( workingFragmentList )
-        revCompMatrix = getRevCompMatrix( workingFragmentList )
+        overlapMatrix = negateMainDiagonal( getOverlapMatrix( workingFragmentList ) )
+        revCompMatrix = negateMainDiagonal( getRevCompMatrix( workingFragmentList ) )
 
         # Remove from the list of fragments any fragment which aligns better as part
         # of the anti-sense strand
         for i in range(len(fragments)):
-            if max(overlapMatrix[i]) > max(revCompMatrix[i]):
+            maxWhenFirst = max(overlapMatrix[i])
+            maxWhenSecond = -1
+            for row in overlapMatrix:
+                maxWhenSecond = max(maxWhenSecond, row[i])
+
+            revCompMaxWhenFirst = max(revCompMatrix[i])
+            revCompMaxWhenSecond = -1
+            for row in revCompMatrix:
+                revCompMaxWhenSecond = max(revCompMaxWhenSecond, row[i])
+
+            if (maxWhenFirst + maxWhenSecond) < (revCompMaxWhenFirst + revCompMaxWhenSecond):
+            #if (maxWhenFirst < revCompMaxWhenFirst) \
+            #        and (maxWhenSecond < revCompMaxWhenSecond):
                 workingFragmentList.remove(fragments[i])
 
         # "Delete" our knowledge of any fragments which we've decided to treat as part
@@ -172,6 +211,7 @@ def main():
     # Using that new, trimmed-down list of fragments, recreate the overlap matrix
     overlapMatrix = getOverlapMatrix( fragments )
 
+
     # Write the matrix to disk
     overlapFile = open("overlap.txt", "w")
     for row in overlapMatrix:
@@ -186,61 +226,6 @@ def main():
         fragmentFile.write(f)
         fragmentFile.write("\n")
 
-
-    ##### NOTE: All code that follows is a remnant of when we were trying to #####
-    ##### solve TSP by hand. Its output should be ignored, but I've left the #####
-    ##### code for the sake of posterity (i.e., when we need to do similar   #####
-    ##### things in the future.                                              #####
-
-
-    alignments = []
-    currentFragment = 0
-    senseFragments = [] # *not* reverse-complimentary fragments!
-    antisenseFragments = [] # reverse-complimentary fragments
-    prevOverlapMatrix = getDuplicateMatrix(overlapMatrix)
-    while len(alignments) < len(workingFragmentList):
-        for row in overlapMatrix:
-            row[currentFragment] = -1
-        for row in revCompMatrix:
-            row[currentFragment] = -1
-
-        currentFragmentOverlap = max(overlapMatrix[currentFragment])
-        revCompOverlap = max(revCompMatrix[currentFragment])
-        nextFragment = overlapMatrix[currentFragment].index(currentFragmentOverlap)
-        nextFragmentIfRevComp = revCompMatrix[currentFragment].index(revCompOverlap)
-
-        if revCompOverlap > currentFragmentOverlap \
-                and currentFragment not in senseFragments\
-                and currentFragment != 0:
-            # If this fragment should be treated as a reverse complement of
-            # another, we ignore it (since we have 5x coverage anyway when going
-            # the "right" way)
-
-            # Since the current fragment is better treated as a rev comp, eliminate
-            # it from future consideration and continue on -- next time we'll find
-            # the "real" best match for currentRow
-
-            # Force the sense version of the current fragment to go in the "sense"
-            # direction
-            senseFragments.append( nextFragmentIfRevComp )
-
-            # For posterity, remember that we forced this to be an antisense fragment
-            antisenseFragments.append(currentFragment)
-            # Delete the current fragment from the list of fragments (due to the
-            # loop's exit condition
-            workingFragmentList.remove(fragments[currentFragment])
-
-            # Undo matching the previous strand with this one
-            prevMatch = alignments.pop()
-            currentFragment = prevMatch[0] # reset current fragment
-
-            # The overlap matrix after undoing the previous alignment
-            #overlapMatrix = prevOverlapMatrix # reset the overlap matrix
-        else:
-            alignments.append([currentFragment,nextFragment])
-            currentFragment = nextFragment
-            prevOverlapMatrix = getDuplicateMatrix(overlapMatrix)
-
     print("\nWrote the output file. Now run the team_3_tsp.py program in python2.")
 
 
@@ -249,6 +234,18 @@ def main():
 
     print("Testing: best score of alignment for ACAAGTCCAAATTTTTGG and GGGGG is:")
     print(overlap("ACAAGTCCAAATTTTTGG", "GGGGG"))
+
+    print("Testing: best score of alignment for TTGACCAACGCAACAAGTTAGCCTAGCGATGGCAGCGC and TGG is:")
+    print(overlap("TTGACCAACGCAACAAGTTAGCCTAGCGATGGCAGCGC", "TGG"))
+
+
+
+    # Count the base pairs:
+    count = 0
+    for fragment in fragments:
+        count += len(fragment)
+    print("\n\nNumber of base pairs is",count)
+    print("Expected length of the final sequence is",count,"/ 5 = ",count/5)
 
 if __name__ == "__main__":
     main()
