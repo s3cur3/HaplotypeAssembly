@@ -34,6 +34,7 @@ from pyevolve import Crossovers
 from pyevolve import Consts
 import datetime, random
 from math import sqrt
+from team_3_scoreAlignments import overlap
 
 PIL_SUPPORT = False
 
@@ -64,10 +65,29 @@ def readFragmentFile(fragmentFile):
 
 def getAlignmentScore(matrix, tour):
     """ Returns the total score for this solution """
-    total = 0
-    for i in range(len(tour)-1):
-        total += matrix[ tour[i] ][ tour[i+1] ]
-    return total
+    global fragments
+
+    alignmentList = []
+    for i in range( len(tour)-1 ):
+        alignmentList.append( ( int(tour[i]), int(tour[i+1])) )
+
+    offset = 0
+    for pair in alignmentList:
+        if pair[0] == pair[1] == 0:
+            print("Error, error, error!")
+            break
+        theOverlap, addToOffset = overlap(fragments[pair[0]], fragments[pair[1]])
+        offset += addToOffset
+
+    #print("Length to add to offset: ", len(fragments[ tour[-1] ]))
+    #print("Fragment that comes from: ", (fragments[ tour[-1] ]) )
+    #print("(That's at position ", tour[-1],"in the list of fragments)")
+
+    # Return the length of the overall alignment
+    # Offset tells us where the last thing lines up against the whole sequence
+    # The full length of the aligned fragments is the offset plus the length of
+    # the last fragment
+    return offset + len(fragments[ tour[-1] ])
 
 def G1DListTSPInitializator(genome, **args):
    """ The initializator for the TSP """
@@ -107,6 +127,9 @@ def main_run(distancesFileName, fragmentFileName, crossover_rate=1.0, mutation_r
     coords = read_coords(filehandle)
     cm = coords
 
+    #for row in cm:
+    #    print row
+
     # set the alleles to the cities numbers
     setOfAlleles = GAllele.GAlleles(homogeneous=True)
     lst = [ i for i in xrange(len(coords)) ]
@@ -122,8 +145,8 @@ def main_run(distancesFileName, fragmentFileName, crossover_rate=1.0, mutation_r
     genome.initializator.set(G1DListTSPInitializator)
 
     ga = GSimpleGA.GSimpleGA(genome)
-    ga.setGenerations(10000) # 10000 is a good "real" value
-    ga.setMinimax(Consts.minimaxType["maximize"])
+    ga.setGenerations(5000) # 10000 is a good "real" value
+    ga.setMinimax(Consts.minimaxType["minimize"])
     ga.setCrossoverRate(crossover_rate)
     ga.setMutationRate(mutation_rate)
     ga.setPopulationSize(population_size)
@@ -136,10 +159,13 @@ def main_run(distancesFileName, fragmentFileName, crossover_rate=1.0, mutation_r
 if __name__ == "__main__":
     bestScore = -1
     bestSequence = []
+    bestCrossover = -1
+    bestMutationRate = -1
+    bestPopSize = -1
 
     # Repeat many times so that we vary the parameters of the model (results in much
     # better... results.)
-    for i in range(30):
+    for i in range(35):
         crossover_rate = float(random.randrange(20, 100, 5))/100
         mutation_rate = float(random.randrange(0, 15, 1))/100
         population_size = random.randrange(10, 150, 10)
@@ -148,6 +174,11 @@ if __name__ == "__main__":
         if score > bestScore:
             bestScore = score
             bestSequence = sequence
+
+            # Remember the parameters that gave us this score
+            bestCrossover = crossover_rate
+            bestMutationRate =mutation_rate
+            bestPopSize = population_size
 
     print "Best score: ", bestScore
     print "Sequence: ", bestSequence
@@ -161,5 +192,12 @@ if __name__ == "__main__":
     # Write a second file in case we're running multiple tests at once
     bestFile = open("alignmentOrderWith" + str(len(bestSequence))  + "SequencesEndingAt" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ".txt", "w")
     for num in bestSequence:
-        bestFile.write(str(num))
-        bestFile.write(" ")
+        bestFile.write(str(num) + " ")
+
+    bestFile.write("# Parameters were: Pop size: ")
+    bestFile.write(str(bestPopSize))
+    bestFile.write("# Crossover rate: ")
+    bestFile.write(str(bestCrossover))
+
+    bestFile.write("# Mutation rate: ")
+    bestFile.write(str(bestMutationRate))

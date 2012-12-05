@@ -9,6 +9,21 @@ Written for Python 3
 """
 from team_3_scoreAlignments import overlap, getFragments
 
+def getSimplifiedFragments(filename):
+    f = open(filename, 'rU')
+    resultList = []
+
+    # initialize the sequence accumulator
+    for line in f:
+        line = line.rstrip()
+
+        # ignore blank lines
+        if line != '':
+            resultList.append(line)
+    return resultList
+
+
+
 def printAlignments( listOfFragments, alignmentList ):
     offset = 0
     for pair in alignmentList:
@@ -42,10 +57,13 @@ def writeAlignmentCSV( fileToWriteTo, fragments, alignments ):
         offset += addToOffset
 
 def main():
-    fragments = getFragments('fragments.fasta')
+    fragments = getSimplifiedFragments('fragments.txt')
 
     alignmentFile = open("alignmentOrder.txt", "r")
-    alignmentSequence = alignmentFile.read().split()
+    # Strip the comments
+    fileContents = ( alignmentFile.read().split("#") )[0] #ignore everything after the hash
+
+    alignmentSequence = fileContents.split() # split the sequence on spaces
     print("Alignment seq is", alignmentSequence)
     alignments = []
     for i in range( len(alignmentSequence)-1 ):

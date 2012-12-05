@@ -9,7 +9,7 @@ Written for Python 3
 
 # If a fragment in our file is less than or equal to MIN_LENGTH, we ignore it
 # entirely (with 5x coverage, it may wind up being a red herring)
-MIN_LENGTH = 3
+MIN_LENGTH = 5
 
 
 def overlap( s1, s2 ):
@@ -24,13 +24,14 @@ def overlap( s1, s2 ):
     than overlap(s2,s1). Furthermore, you are responsible for handling any
     reverse-complimentarity issues.
     '''
-    maxAllowedErrors = (max(len(s2), len(s1)) * 0.05)
+    maxAllowedErrors = (min(len(s2), len(s1)) * 0.2) # 10% of the shortest seq.
 
     maxSoFar = 0
-    errorsSoFar = 0
     s2pos = 0
-    alignmentStart = 0
+    alignmentStart = len(s1)
     for s1pos in range(len(s1)-1, 0, -1):
+        errorsSoFar = 0
+
         maxAtThisSize = 0
         potentialAlignmentStart = s1pos
         if s1pos < 0: # no suffix of S1 can begin left of its first character
@@ -45,11 +46,13 @@ def overlap( s1, s2 ):
                 maxAtThisSize += 1
             else:
                 errorsSoFar += 1
+                #print("Found an error! This is number ", errorsSoFar, "for this alignment, of a maximum of ", maxAllowedErrors)
                 if errorsSoFar >= maxAllowedErrors:
+                    # Stop considering this as a possible alignment
                     break
 
         s2pos += 1
-        if(maxAtThisSize > maxSoFar):
+        if(maxAtThisSize > maxSoFar) and (errorsSoFar < maxAllowedErrors):
             maxSoFar = maxAtThisSize
             alignmentStart = potentialAlignmentStart
 
@@ -180,7 +183,6 @@ def main():
     ##### solve TSP by hand. Its output should be ignored, but I've left the #####
     ##### code for the sake of posterity (i.e., when we need to do similar   #####
     ##### things in the future.                                              #####
-    print("Ignore the following output and run team_3_tsp.py.")
 
 
     alignments = []
@@ -232,6 +234,13 @@ def main():
             prevOverlapMatrix = getDuplicateMatrix(overlapMatrix)
 
     print("Wrote the output file. Now run the team_3_tsp.py program in python2.")
+
+
+    #print("Testing: best score of alignment for GGATGTCCTGATCCAACATCGAGGTCGTAAACCCTATTGTTGA and TCCAACATC is:")
+    #print(overlap("GGATGTCCTGATCCAACATCGAGGTCGTAAACCCTATTGTTGA", "TCCAACATC"))
+
+    print("Testing: best score of alignment for ACAAGTCCAAATTTTTGG and GGGGG is:")
+    print(overlap("ACAAGTCCAAATTTTTGG", "GGGGG"))
 
 if __name__ == "__main__":
     main()
