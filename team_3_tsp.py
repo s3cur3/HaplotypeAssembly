@@ -63,9 +63,10 @@ def readFragmentFile(fragmentFile):
             fragments.append(line)
     return fragments
 
+memo = {}
 def getAlignmentScore(matrix, tour):
     """ Returns the total score for this solution """
-    global fragments
+    global fragments, memo
 
     alignmentList = []
     for i in range( len(tour)-1 ):
@@ -76,8 +77,12 @@ def getAlignmentScore(matrix, tour):
         if pair[0] == pair[1] == 0:
             print("Error, error, error!")
             break
-        theOverlap, addToOffset = overlap(fragments[pair[0]], fragments[pair[1]])
-        offset += addToOffset
+        if pair in memo:
+            offset += memo[pair]
+        else:
+            theOverlap, addToOffset = overlap(fragments[pair[0]], fragments[pair[1]])
+            offset += addToOffset
+            memo[pair] = addToOffset
 
     #print("Length to add to offset: ", len(fragments[ tour[-1] ]))
     #print("Fragment that comes from: ", (fragments[ tour[-1] ]) )

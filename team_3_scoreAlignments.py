@@ -143,23 +143,31 @@ def main():
     workingFragmentList = getFragments('fragments.fasta')
     fragments = list(workingFragmentList)
 
-    #### TODO: Should we iterate this a few times? ####
-    #### Begin possible for loop ####
+    #### TODO: Should we actually be iterating this a few times? ####
+    # Iterate to make sure we remove anything that aligns better on the antisense
+    # strand than the sense strand
+    for iteration in range(5):
+        overlapMatrix = getOverlapMatrix( workingFragmentList )
+        revCompMatrix = getRevCompMatrix( workingFragmentList )
 
-    overlapMatrix = getOverlapMatrix( workingFragmentList )
-    revCompMatrix = getRevCompMatrix( workingFragmentList )
+        # Remove from the list of fragments any fragment which aligns better as part
+        # of the anti-sense strand
+        for i in range(len(fragments)):
+            if max(overlapMatrix[i]) > max(revCompMatrix[i]):
+                workingFragmentList.remove(fragments[i])
 
-    # Remove from the list of fragments any fragment which aligns better as part
-    # of the anti-sense strand
-    for i in range(len(fragments)):
-        if max(overlapMatrix[i]) > max(revCompMatrix[i]):
-            workingFragmentList.remove(fragments[i])
+        # "Delete" our knowledge of any fragments which we've decided to treat as part
+        # of the antisense strand
+        numDeletedFragments = len(fragments) - len(workingFragmentList)
+        if iteration == 0:
+            print("Decided that",numDeletedFragments,
+                  "fragments belong on the anti-sense strand.")
+        else:
+            print("Decided another",numDeletedFragments,
+                  "fragments belong on the anti-sense strand.")
+        fragments = list(workingFragmentList)
 
-    # "Delete" our knowledge of any fragments which we've decided to treat as part
-    # of the antisense strand
-    fragments = list(workingFragmentList)
-
-    #### End possible for loop ####
+        #### End possible for loop ####
 
     # Using that new, trimmed-down list of fragments, recreate the overlap matrix
     overlapMatrix = getOverlapMatrix( fragments )
@@ -233,7 +241,7 @@ def main():
             currentFragment = nextFragment
             prevOverlapMatrix = getDuplicateMatrix(overlapMatrix)
 
-    print("Wrote the output file. Now run the team_3_tsp.py program in python2.")
+    print("\nWrote the output file. Now run the team_3_tsp.py program in python2.")
 
 
     #print("Testing: best score of alignment for GGATGTCCTGATCCAACATCGAGGTCGTAAACCCTATTGTTGA and TCCAACATC is:")
