@@ -161,6 +161,31 @@ def main_run(distancesFileName, fragmentFileName, crossover_rate=1.0, mutation_r
 
     return eval_func(best), best.getInternalList()
 
+def writeResults(fileNameNoExt, sequence, score, crossover, mutation, popSize):
+    # Write the best sequence out to a file
+    theFile = open(fileNameNoExt + ".txt", "w")
+    for num in sequence:
+        theFile.write(str(num))
+        theFile.write(" ")
+
+    # Write a second file in case we're running multiple tests at once
+    theFile = open(fileNameNoExt + "At" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ".txt", "w")
+    for num in sequence:
+        theFile.write(str(num) + " ")
+
+    theFile.write("\n# Parameters were: Pop size: ")
+    theFile.write(str(popSize))
+    theFile.write(", Crossover rate: ")
+    theFile.write(str(crossover))
+
+    theFile.write(", Mutation rate: ")
+    theFile.write(str(mutation))
+
+    theFile.write("\n# Score was: ")
+    theFile.write(str(score))
+
+
+
 if __name__ == "__main__":
     bestScore = -1
     bestSequence = []
@@ -185,24 +210,9 @@ if __name__ == "__main__":
             bestMutationRate =mutation_rate
             bestPopSize = population_size
 
+        writeResults("bestAlignmentOrderSoFar", bestSequence, bestScore, bestCrossover, bestMutationRate, bestPopSize)
+
     print "Best score: ", bestScore
     print "Sequence: ", bestSequence
 
-    # Write the best sequence out to a file
-    bestFile = open("alignmentOrder.txt", "w")
-    for num in bestSequence:
-        bestFile.write(str(num))
-        bestFile.write(" ")
-
-    # Write a second file in case we're running multiple tests at once
-    bestFile = open("alignmentOrderWith" + str(len(bestSequence))  + "SequencesEndingAt" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ".txt", "w")
-    for num in bestSequence:
-        bestFile.write(str(num) + " ")
-
-    bestFile.write("# Parameters were: Pop size: ")
-    bestFile.write(str(bestPopSize))
-    bestFile.write("# Crossover rate: ")
-    bestFile.write(str(bestCrossover))
-
-    bestFile.write("# Mutation rate: ")
-    bestFile.write(str(bestMutationRate))
+    writeResults("alignmentOrder", bestSequence, bestScore, bestCrossover, bestMutationRate, bestPopSize)
